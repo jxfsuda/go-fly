@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/swaggo/gin-swagger/swaggerFiles"
-	"github.com/taoshihan1991/imaptool/config"
+	"github.com/taoshihan1991/imaptool/controller"
 	"github.com/taoshihan1991/imaptool/docs"
 	"github.com/taoshihan1991/imaptool/router"
 	"github.com/taoshihan1991/imaptool/tools"
@@ -16,14 +17,12 @@ import (
 )
 
 var (
-	port        string
-	tcpport     string
-	daemon      bool
-	GoflyConfig *config.Config
+	Port   string
+	daemon bool
 )
 var serverCmd = &cobra.Command{
 	Use:     "server",
-	Short:   "example:go-fly server port 8081",
+	Short:   "example:go-fly server -p 8081",
 	Example: "go-fly server -c config/",
 	Run: func(cmd *cobra.Command, args []string) {
 		run()
@@ -31,8 +30,7 @@ var serverCmd = &cobra.Command{
 }
 
 func init() {
-	serverCmd.PersistentFlags().StringVarP(&port, "port", "p", "8081", "监听端口号")
-	serverCmd.PersistentFlags().StringVarP(&tcpport, "tcpport", "t", "8082", "监听tcp端口号")
+	serverCmd.PersistentFlags().StringVarP(&Port, "port", "p", "8081", "监听端口号")
 	serverCmd.PersistentFlags().BoolVarP(&daemon, "daemon", "d", false, "是否为守护进程模式")
 }
 func run() {
@@ -50,12 +48,15 @@ func run() {
 		}
 	}
 
-	baseServer := "0.0.0.0:" + port
-	//tcpBaseServer := "0.0.0.0:"+tcpport
+	baseServer := "0.0.0.0:" + Port
+	controller.Port = Port
 	log.Println("start server...\r\ngo：http://" + baseServer)
 	engine := gin.Default()
 	engine.LoadHTMLGlob("static/html/*")
 	engine.Static("/static", "./static")
+	engine.Use(tools.Session("gofly"))
+	//性能监控
+	pprof.Register(engine)
 
 	//记录日志
 	engine.Use(tools.LoggerToFile())

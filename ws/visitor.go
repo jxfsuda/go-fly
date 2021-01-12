@@ -3,12 +3,13 @@ package ws
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/taoshihan1991/imaptool/models"
 	"log"
 )
 
 func NewVisitorServer(c *gin.Context) {
-	go kefuServerBackend()
+	//go kefuServerBackend()
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -31,7 +32,7 @@ func NewVisitorServer(c *gin.Context) {
 		To_id:  vistorInfo.ToId,
 	}
 	go models.UpdateVisitorStatus(vistorInfo.VisitorId, 1)
-	go SendServerJiang(vistorInfo.Name)
+	go SendServerJiang(vistorInfo.Name, "来了", c.Request.Host)
 
 	AddVisitorToList(user)
 
@@ -40,21 +41,11 @@ func NewVisitorServer(c *gin.Context) {
 		var receive []byte
 		messageType, receive, err := conn.ReadMessage()
 		if err != nil {
-			for uid, visitor := range ClientList {
+			for _, visitor := range ClientList {
 				if visitor.Conn == conn {
-					log.Println("删除用户", uid)
-					delete(ClientList, uid)
-					models.UpdateVisitorStatus(uid, 0)
-					userInfo := make(map[string]string)
-					userInfo["uid"] = uid
-					userInfo["name"] = visitor.Name
-					msg := TypeMessage{
-						Type: "userOffline",
-						Data: userInfo,
-					}
-					str, _ := json.Marshal(msg)
-					//新版
-					OneKefuMessage(user.To_id, str)
+					log.Println("删除用户", visitor.Id)
+					delete(ClientList, visitor.Id)
+					VisitorOffline(visitor.To_id, visitor.Id, visitor.Name)
 				}
 			}
 			log.Println(err)
@@ -89,4 +80,44 @@ func AddVisitorToList(user *User) {
 
 	//新版
 	OneKefuMessage(user.To_id, str)
+}
+func VisitorOnline(kefuId string, visitor models.Visitor) {
+	lastMessage := models.FindLastMessageByVisitorId(visitor.VisitorId)
+	userInfo := make(map[string]string)
+	userInfo["uid"] = visitor.VisitorId
+	userInfo["username"] = visitor.Name
+	userInfo["avator"] = visitor.Avator
+	userInfo["last_message"] = lastMessage.Content
+	if userInfo["last_message"] == "" {
+		userInfo["last_message"] = "新访客"
+	}
+	msg := TypeMessage{
+		Type: "userOnline",
+		Data: userInfo,
+	}
+	str, _ := json.Marshal(msg)
+	OneKefuMessage(kefuId, str)
+}
+func VisitorOffline(kefuId string, visitorId string, visitorName string) {
+
+	models.UpdateVisitorStatus(visitorId, 0)
+	userInfo := make(map[string]string)
+	userInfo["uid"] = visitorId
+	userInfo["name"] = visitorName
+	msg := TypeMessage{
+		Type: "userOffline",
+		Data: userInfo,
+	}
+	str, _ := json.Marshal(msg)
+	//新版
+	OneKefuMessage(kefuId, str)
+}
+func VisitorNotice(visitorId string, notice string) {
+	msg := TypeMessage{
+		Type: "notice",
+		Data: notice,
+	}
+	str, _ := json.Marshal(msg)
+	visitor := ClientList[visitorId]
+	visitor.Conn.WriteMessage(websocket.TextMessage, str)
 }

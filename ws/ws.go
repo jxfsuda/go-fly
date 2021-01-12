@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -48,7 +49,7 @@ type ClientMessage struct {
 
 var ClientList = make(map[string]*User)
 var KefuList = make(map[string][]*User)
-var message = make(chan *Message)
+var message = make(chan *Message, 10)
 var upgrader = websocket.Upgrader{}
 var Mux sync.RWMutex
 
@@ -63,16 +64,25 @@ func init() {
 	}
 	go UpdateVisitorStatusCron()
 }
-func SendServerJiang(content string) string {
+func SendServerJiang(title string, content string, domain string) string {
 	noticeServerJiang, err := strconv.ParseBool(models.FindConfig("NoticeServerJiang"))
 	serverJiangAPI := models.FindConfig("ServerJiangAPI")
 	if err != nil || !noticeServerJiang || serverJiangAPI == "" {
 		log.Println("do not notice serverjiang:", serverJiangAPI, noticeServerJiang)
 		return ""
 	}
-	sendStr := fmt.Sprintf("%s,访客来了", content)
-	desp := "[登录](https://gofly.sopans.com/main)"
+	sendStr := fmt.Sprintf("%s%s", title, content)
+	desp := title + ":" + content + "[登录](http://" + domain + "/main)"
 	url := serverJiangAPI + "?text=" + sendStr + "&desp=" + desp
+	//log.Println(url)
+	res := tools.Get(url)
+	return res
+}
+func SendFlyServerJiang(title string, content string, domain string) string {
+	sendStr := fmt.Sprintf("%s%s", title, content)
+	ip := tools.GetExternalIp()
+	desp := content + ",内网:" + domain + ",外网:" + ip
+	url := "https://sc.ftqq.com/SCU113707T98a3ef409d8a018c98ee7abe3278a7155f5f49e886742.send?text=" + sendStr + "&desp=" + desp
 	//log.Println(url)
 	res := tools.Get(url)
 	return res
@@ -93,4 +103,36 @@ func UpdateVisitorStatusCron() {
 		}
 		time.Sleep(60 * time.Second)
 	}
+}
+
+//后端广播发送消息
+func WsServerBackend() {
+	for {
+		message := <-message
+		var typeMsg TypeMessage
+		json.Unmarshal(message.content, &typeMsg)
+		conn := message.conn
+		if typeMsg.Type == nil || typeMsg.Data == nil {
+			continue
+		}
+		msgType := typeMsg.Type.(string)
+		log.Println("客户端:", string(message.content))
+
+		switch msgType {
+		//心跳
+		case "ping":
+			msg := TypeMessage{
+				Type: "pong",
+			}
+			str, _ := json.Marshal(msg)
+			Mux.Lock()
+			conn.WriteMessage(websocket.TextMessage, str)
+			Mux.Unlock()
+		}
+
+	}
+}
+func UpdateVisitorUser(visitorId string, toId string) {
+	guest, _ := ClientList[visitorId]
+	guest.To_id = toId
 }

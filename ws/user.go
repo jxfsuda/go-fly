@@ -19,7 +19,7 @@ func NewKefuServer(c *gin.Context) {
 		return
 	}
 
-	go kefuServerBackend()
+	//go kefuServerBackend()
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -100,6 +100,7 @@ func kefuServerBackend() {
 
 //给超管发消息
 func SuperAdminMessage(str []byte) {
+	return
 	//给超管发
 	for _, kefuUsers := range KefuList {
 		for _, kefuUser := range kefuUsers {
@@ -120,4 +121,29 @@ func OneKefuMessage(toId string, str []byte) {
 		}
 	}
 	SuperAdminMessage(str)
+}
+
+//给客服客户端发送消息判断客户端是否在线
+func SendPingToKefuClient() {
+	msg := TypeMessage{
+		Type: "many pong",
+	}
+	str, _ := json.Marshal(msg)
+	for kefuId, kfConns := range KefuList {
+		var newKefuConns = []*User{}
+		for _, kefuConn := range kfConns {
+			if kefuConn == nil {
+				continue
+			}
+			err := kefuConn.Conn.WriteMessage(websocket.TextMessage, str)
+			if err == nil {
+				newKefuConns = append(newKefuConns, kefuConn)
+			}
+		}
+		if len(newKefuConns) > 0 {
+			KefuList[kefuId] = newKefuConns
+		} else {
+			delete(KefuList, kefuId)
+		}
+	}
 }

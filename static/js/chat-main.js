@@ -2,6 +2,7 @@ var app=new Vue({
     el: '#app',
     delimiters:["<{","}>"],
     data: {
+        chatTitleType:"info",
         fullscreenLoading:true,
         leftTabActive:"first",
         rightTabActive:"visitorInfo",
@@ -34,6 +35,19 @@ var app=new Vue({
         visitorCurrentPage:1,
         visitorPageSize:10,
         face:[],
+        transKefuDialog:false,
+        otherKefus:[],
+        replyGroupDialog:false,
+        replyContentDialog:false,
+        replySearch:"",
+        replySearchList:[],
+        replySearchListActive:[],
+        groupName:"",
+        groupId:"",
+        replys:[],
+        replyContent:"",
+        ipBlacks:[],
+        sendDisabled:false,
     },
     methods: {
         //跳转
@@ -161,7 +175,7 @@ var app=new Vue({
         //接手客户
         talkTo(guestId,name) {
             this.currentGuest = guestId;
-            this.chatTitle=name+"|"+guestId+",正在处理中...";
+            //this.chatTitle=name+"|"+guestId+",正在处理中...";
 
             //发送给客户
             let mes = {}
@@ -181,6 +195,7 @@ var app=new Vue({
             if(this.messageContent==""||this.messageContent=="\r\n"||this.currentGuest==""){
                 return;
             }
+            this.sendDisabled=true;
             let _this=this;
             let mes = {};
             mes.type = "kefu";
@@ -206,6 +221,7 @@ var app=new Vue({
             // content.is_kefu = true;
             // content.time = '';
             // this.msgList.push(content);
+            _this.sendDisabled=false;
             this.scrollBottom();
         },
         //处理当前在线用户列表
@@ -376,6 +392,8 @@ var app=new Vue({
                         // _this.visitor.source_ip=r.source_ip;
                         _this.visitor.status=r.status==1?"在线":"离线";
                         //_this.visitor.visitor_id=r.visitor_id;
+                        _this.chatTitle="#"+r.id+"|"+r.name;
+                        _this.chatTitleType="success";
                     }
                     if(data.code!=200){
                         _this.$message({
@@ -589,7 +607,151 @@ var app=new Vue({
             var b = document.getElementById("chatMessageSendAudio");
             var p = b.play();
             p && p.then(function(){}).catch(function(e){});
-        }
+        },
+        //转移客服
+        transKefu(){
+            this.transKefuDialog=true;
+            var _this=this;
+            this.sendAjax("/other_kefulist","get",{},function(result){
+                _this.otherKefus=result;
+            });
+        },
+        //转移访客客服
+        transKefuVisitor(kefu,visitorId){
+            var _this=this;
+            this.sendAjax("/trans_kefu","get",{kefu_id:kefu,visitor_id:visitorId},function(result){
+                //_this.otherKefus=result;
+                _this.transKefuDialog = false
+            });
+        },
+        //保存回复分组
+        addReplyGroup(){
+            var _this=this;
+            this.sendAjax("/reply","post",{group_name:_this.groupName},function(result){
+                //_this.otherKefus=result;
+                _this.replyGroupDialog = false
+                _this.groupName="";
+                _this.getReplys();
+            });
+        },
+        //添加回复内容
+        addReplyContent(){
+            var _this=this;
+            this.sendAjax("/reply_content","post",{group_id:_this.groupId,content:_this.replyContent},function(result){
+                //_this.otherKefus=result;
+                _this.replyContentDialog = false
+                _this.replyContent="";
+                _this.getReplys();
+            });
+        },
+        //获取快捷回复
+        getReplys(){
+            var _this=this;
+            this.sendAjax("/replys","get",{},function(result){
+                _this.replys=result;
+            });
+        },
+        //删除回复
+        deleteReplyGroup(id){
+            var _this=this;
+            this.sendAjax("/reply?id="+id,"delete",{},function(result){
+                _this.getReplys();
+            });
+        },
+        //删除回复
+        deleteReplyContent(id){
+            var _this=this;
+            this.sendAjax("/reply_content?id="+id,"delete",{},function(result){
+                _this.getReplys();
+            });
+        },
+        //搜索回复
+        searchReply(){
+            var _this=this;
+            _this.replySearchListActive=[];
+            if(this.replySearch==""){
+                _this.replySearchList=[];
+            }
+            this.sendAjax("/reply_search","post",{search:this.replySearch},function(result){
+                _this.replySearchList=result;
+                for (var i in result) {
+                    _this.replySearchListActive.push(result[i].group_id);
+                }
+            });
+        },
+        //获取黑名单
+        getIpblacks(){
+            var _this=this;
+            this.sendAjax("/ipblacks","get",{},function(result){
+                _this.ipBlacks=result;
+            });
+        },
+        //删除黑名单
+        delIpblack(ip){
+            let _this=this;
+            this.sendAjax("/ipblack?ip="+ip,"DELETE",{ip:ip},function(result){
+                _this.sendAjax("/ipblacks","get",{},function(result){
+                    _this.ipBlacks=result;
+                });
+            });
+        },
+        //划词搜索
+        selectText(){
+            var _this=this;
+            $('body').click(function(){
+                try{
+                    var selecter = window.getSelection().toString();
+                    if (selecter != null && selecter.trim() != ""){
+                        _this.replySearch=selecter.trim();
+                        _this.searchReply();
+                    }else{
+                        _this.replySearch="";
+                    }
+                } catch (err){
+                    var selecter = document.selection.createRange();
+                    var s = selecter.text;
+                    if (s != null && s.trim() != ""){
+                        _this.replySearch=s.trim();
+                        _this.searchReply();
+                    }else{
+                        _this.replySearch="";
+                    }
+                }
+            });
+        },
+        sendAjax(url,method,params,callback){
+            let _this=this;
+            $.ajax({
+                type: method,
+                url: url,
+                data:params,
+                headers: {
+                    "token": localStorage.getItem("token")
+                },
+                error:function(res){
+                    var data=JSON.parse(res.responseText);
+                    console.log(data);
+                    if(data.code!=200){
+                        _this.$message({
+                            message: data.msg,
+                            type: 'error'
+                        });
+                    }
+                },
+                success: function(data) {
+                    if(data.code!=200){
+                        _this.$message({
+                            message: data.msg,
+                            type: 'error'
+                        });
+                    }else if(data.result!=null){
+                        callback(data.result);
+                    }else{
+                        callback(data);
+                    }
+                }
+            });
+        },
     },
     mounted() {
         document.addEventListener('paste', this.onPasteUpload)
@@ -599,6 +761,9 @@ var app=new Vue({
         this.initJquery();
         this.getKefuInfo();
         this.getOnlineVisitors();
+        this.getReplys();
+        this.getIpblacks();
+        this.selectText();
         //心跳
         this.ping();
     }

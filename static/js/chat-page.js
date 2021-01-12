@@ -15,10 +15,11 @@ new Vue({
         showKfonline:false,
         socketClosed:false,
         timer:null,
+        sendDisabled:false,
     },
     methods: {
         //初始化websocket
-        initConn() {
+        initConn:function() {
             let socket = new ReconnectingWebSocket(this.server+"?visitor_id="+this.visitor.visitor_id);//创建Socket实例
             socket.maxReconnectAttempts = 30;
             this.socket = socket
@@ -28,7 +29,7 @@ new Vue({
             //心跳
             this.ping();
         },
-        OnOpen() {
+        OnOpen:function() {
             this.chatTitle="连接成功!"
             // let mes = {}
             // mes.type = "userInit";
@@ -36,7 +37,7 @@ new Vue({
             // mes.data = this.visitor;
             // this.socket.send(JSON.stringify(mes));
         },
-        OnMessage(e) {
+        OnMessage:function(e) {
             const redata = JSON.parse(e.data);
             if (redata.type == "kfOnline") {
                 let msg = redata.data
@@ -83,10 +84,10 @@ new Vue({
                 this.socket.close();
                 this.socketClosed=true;
             }
-            window.parent.postMessage(redata);
+            //window.parent.postMessage(redata);
         },
         //发送给客户
-        chatToUser() {
+        chatToUser:function() {
             this.messageContent=this.messageContent.trim("\r\n");
             if(this.messageContent==""||this.messageContent=="\r\n"){
                 this.$message({
@@ -102,6 +103,7 @@ new Vue({
                 });
                 return;
             }
+            this.sendDisabled=true;
             let _this=this;
             let mes = {};
             mes.type = "visitor";
@@ -130,15 +132,16 @@ new Vue({
                 _this.messageContent = "";
                 clearInterval(_this.timer);
                 _this.sendSound();
+                _this.sendDisabled=false;
             });
 
         },
-        OnClose() {
+        OnClose:function() {
             this.chatTitle="连接关闭!请重新打开页面";
             $(".chatBox").append("<div class=\"chatTime\">"+this.chatTitle+"</div>");
         },
         //获取当前用户信息
-        getUserInfo(){
+        getUserInfo:function(){
             let obj=this.getCache("visitor");
             var visitor_id=""
             if(obj){
@@ -146,7 +149,7 @@ new Vue({
             }
                 let _this=this;
                 //发送消息
-                $.post("/visitor_login",{visitor_id:visitor_id,refer:REFER,to_id:KEFU_ID,client_ip:returnCitySN["cip"],},function(res){
+                $.post("/visitor_login",{visitor_id:visitor_id,refer:REFER,to_id:KEFU_ID,client_ip:'',},function(res){
                     if(res.code!=200){
                         _this.$message({
                             message: res.msg,
@@ -165,7 +168,7 @@ new Vue({
             // }
         },
         //获取信息列表
-        getMesssagesByVisitorId(){
+        getMesssagesByVisitorId:function(){
             let _this=this;
             $.ajax({
                 type:"get",
@@ -191,7 +194,7 @@ new Vue({
                             _this.msgList.push(content);
                             _this.scrollBottom();
                         }
-                        _this.$nextTick(() => {
+                        _this.$nextTick(function(){
                             $(".chatBox").append("<div class=\"chatTime\">—— 以上是历史消息 ——</div>");
                         });
                     }
@@ -206,7 +209,7 @@ new Vue({
         },
         //滚动到底部
         scrollBottom:function(){
-            this.$nextTick(() => {
+            this.$nextTick(function(){
                 //debugger;
                 $('body').scrollTop($("body")[0].scrollHeight);
             });
@@ -239,10 +242,14 @@ new Vue({
                     var i=0;
                     if(len>0){
                         _this.timer=setInterval(function(){
-                            if(i>=len){
+                            if(i>=len||typeof msg[i]=="undefined"||msg[i]==null){
                                 clearInterval(_this.timer);
+                                return;
                             }
                             let content = msg[i];
+                            if(typeof content.content =="undefined"){
+                                return;
+                            }
                             content.content = replaceContent(content.content);
                             _this.msgList.push(content);
                             _this.scrollBottom();
@@ -256,7 +263,7 @@ new Vue({
                 }
             });
         },
-        initCss(){
+        initCss:function(){
             var _this=this;
             $(function () {
                 //$(".chatContext").css("max-height",$(window).height());
@@ -280,7 +287,7 @@ new Vue({
             });
         },
         //心跳
-        ping(){
+        ping:function(){
             let _this=this;
             let mes = {}
             mes.type = "ping";
@@ -292,7 +299,7 @@ new Vue({
             },10000);
         },
         //初始化
-        init(){
+        init:function(){
             this.initCss();
             $("#app").click(function(){
                 clearTimeout(titleTimer);
@@ -306,12 +313,12 @@ new Vue({
             });
         },
         //表情点击事件
-        faceIconClick(index){
+        faceIconClick:function(index){
             $('.faceBox').hide();
             this.messageContent+="face"+this.face[index].name;
         },
         //上传图片
-        uploadImg (url){
+        uploadImg:function (url){
             let _this=this;
             $('#uploadImg').after('<input type="file" accept="image/gif,image/jpeg,image/jpg,image/png" id="uploadImgFile" name="file" style="display:none" >');
             $("#uploadImgFile").click();
@@ -344,8 +351,44 @@ new Vue({
                 });
             });
         },
+        //上传文件
+        uploadFile:function (url){
+            let _this=this;
+            $('#uploadFile').after('<input type="file"  id="uploadRealFile" name="file2" style="display:none" >');
+            $("#uploadRealFile").click();
+            $("#uploadRealFile").change(function (e) {
+                var formData = new FormData();
+                var file = $("#uploadRealFile")[0].files[0];
+                formData.append("realfile",file); //传给后台的file的key值是可以自己定义的
+                console.log(formData);
+                $.ajax({
+                    url: url || '',
+                    type: "post",
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    dataType: 'JSON',
+                    mimeType: "multipart/form-data",
+                    success: function (res) {
+
+                        if(res.code!=200){
+                            _this.$message({
+                                message: res.msg,
+                                type: 'error'
+                            });
+                        }else{
+                            _this.messageContent+='file[/' + res.result.path + ']';
+                            _this.chatToUser();
+                        }
+                    },
+                    error: function (data) {
+                        console.log(data);
+                    }
+                });
+            });
+        },
         //粘贴上传图片
-        onPasteUpload(event){
+        onPasteUpload:function(event){
             let items = event.clipboardData && event.clipboardData.items;
             let file = null
             if (items && items.length) {
@@ -387,18 +430,28 @@ new Vue({
             });
         },
         //提示音
-        alertSound(){
+        alertSound:function(){
             var b = document.getElementById("chatMessageAudio");
-            var p = b.play();
-            p && p.then(function(){}).catch(function(e){});
+            if (b.canPlayType('audio/ogg; codecs="vorbis"')) {
+                b.type= 'audio/mpeg';
+                b.src= '/static/images/alert2.ogg';
+                var p = b.play();
+                p && p.then(function () {
+                }).catch(function (e) {
+                });
+            }
         },
-        sendSound(){
+        sendSound:function(){
             var b = document.getElementById("chatMessageSendAudio");
-            var p = b.play();
-            p && p.then(function(){}).catch(function(e){});
+            if (b.canPlayType('audio/ogg; codecs="vorbis"')) {
+                b.type= 'audio/mpeg';
+                b.src= '/static/images/sent.ogg';
+                var p = b.play();
+                p && p.then(function(){}).catch(function(e){});
+            }
         }
     },
-    mounted() {
+    mounted:function() {
         document.addEventListener('paste', this.onPasteUpload)
     },
     created: function () {

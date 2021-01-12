@@ -20,14 +20,16 @@ func InitApiRouter(engine *gin.Engine) {
 		//关闭连接
 		v2.GET("/message_close", controller.SendCloseMessageV2)
 	}
+	engine.GET("/captcha", controller.GetCaptcha)
 	engine.POST("/check", controller.LoginCheckPass)
 	engine.POST("/check_auth", middleware.JwtApiMiddleware, controller.MainCheckAuth)
 	engine.GET("/userinfo", middleware.JwtApiMiddleware, controller.GetKefuInfoAll)
-
+	engine.POST("/register", middleware.Ipblack, controller.PostKefuRegister)
 	//前后聊天
 	engine.GET("/chat_server", middleware.Ipblack, controller.NewChatServer)
 	engine.GET("/ws_kefu", middleware.JwtApiMiddleware, ws.NewKefuServer)
 	engine.GET("/ws_visitor", ws.NewVisitorServer)
+	go ws.WsServerBackend()
 
 	engine.GET("/messages", controller.GetVisitorMessage)
 	engine.GET("/message_notice", controller.SendVisitorNotice)
@@ -37,6 +39,8 @@ func InitApiRouter(engine *gin.Engine) {
 	engine.GET("/message_close", controller.SendCloseMessage)
 	//上传文件
 	engine.POST("/uploadimg", middleware.Ipblack, controller.UploadImg)
+	//上传文件
+	engine.POST("/uploadfile", middleware.Ipblack, controller.UploadFile)
 	//获取未读消息数
 	engine.GET("/message_status", controller.GetVisitorMessage)
 	//设置消息已读
@@ -48,6 +52,8 @@ func InitApiRouter(engine *gin.Engine) {
 	engine.POST("/kefuinfo", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.PostKefuInfo)
 	engine.DELETE("/kefuinfo", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.DeleteKefuInfo)
 	engine.GET("/kefulist", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.GetKefuList)
+	engine.GET("/other_kefulist", middleware.JwtApiMiddleware, controller.GetOtherKefuList)
+	engine.GET("/trans_kefu", middleware.JwtApiMiddleware, controller.PostTransKefu)
 	//角色列表
 	engine.GET("/roles", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.GetRoleList)
 	engine.POST("/role", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.PostRole)
@@ -75,9 +81,16 @@ func InitApiRouter(engine *gin.Engine) {
 	engine.POST("/ipblack", middleware.JwtApiMiddleware, controller.PostIpblack)
 	engine.DELETE("/ipblack", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.DelIpblack)
 	engine.GET("/ipblacks_all", middleware.JwtApiMiddleware, controller.GetIpblacks)
+	engine.GET("/ipblacks", middleware.JwtApiMiddleware, controller.GetIpblacksByKefuId)
 	engine.GET("/configs", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.GetConfigs)
 	engine.POST("/config", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.PostConfig)
 	engine.GET("/config", controller.GetConfig)
+	engine.GET("/replys", middleware.JwtApiMiddleware, controller.GetReplys)
+	engine.POST("/reply", middleware.JwtApiMiddleware, controller.PostReply)
+	engine.POST("/reply_content", middleware.JwtApiMiddleware, controller.PostReplyContent)
+	engine.DELETE("/reply_content", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.DelReplyContent)
+	engine.DELETE("/reply", middleware.JwtApiMiddleware, middleware.RbacAuth, controller.DelReplyGroup)
+	engine.POST("/reply_search", middleware.JwtApiMiddleware, controller.PostReplySearch)
 	//微信接口
-	engine.GET("/micro_program", controller.GetCheckWeixinSign)
+	engine.GET("/micro_program", middleware.JwtApiMiddleware, controller.GetCheckWeixinSign)
 }

@@ -65,7 +65,7 @@
 ```
 
 
-3. 源码运行 go run go-fly.go server port 8081
+3. 源码运行 go run go-fly.go server
 
 4. 源码打包 go build go-fly.go 会生成go-fly可以执行文件
 
@@ -73,10 +73,16 @@
 
 6. 二进制文件运行
  
-   linux:   ./go-fly server port 8081
+   linux:   ./go-fly server [可选 -p 8082 -d]
    
-   windows: go-fly.exe server port 8081 
+   windows: go-fly.exe server [可选 -p 8082 -d]
+7. 参数说明
 
+   -p 指定端口
+   
+   -d linux下是否以daemon守护进程运行
+   
+   -h 查看帮助
 ### nginx部署
 
 访问：https://gofly.sopans.com
@@ -124,6 +130,28 @@ server{
 
 1. 需要先安装swag
 2. 在根目录swag init -g go-fly.go
+### 感谢赞助
+
+2020年12月31日 **强  8.88元
+
+2020年12月24日 **松  8.88元
+
+2020年12月23日 **渊  10元
+
+2020年12月16日 **彬  8.8元
+
+2020年11月30日 **宇  88元
 
 ### 打赏作者
-![Image text](https://img2020.cnblogs.com/blog/726254/202010/726254-20201027110550478-1779816342.jpg)
+欢迎使用爱发电赞赏作者
+
+https://afdian.net/@taoshihan
+
+欢迎使用支付宝赞赏
+
+
+![Image text](https://gofly.sopans.com/static/upload/2020December/9d736faeba2e9967a5dcc1c489f85541.png)
+
+### 版权声明
+
+当前项目仅支持个人测试使用,赞赏并联系作者后可以获取完整技术支持

